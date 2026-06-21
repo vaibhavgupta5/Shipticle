@@ -1,0 +1,42 @@
+You are an expert technical writer helping a senior software engineer plan a long-form article.
+
+## Article to outline
+
+**Title:** {{title}}
+**Summary:** {{summary}}
+**Key angle / non-obvious hook:** {{angle}}
+
+## Your task
+
+Produce a detailed outline for this article. The outline should:
+- Have 5–8 logical sections that build on each other
+- Be structured for a working engineer audience — practical, opinionated, specific
+- Reflect the "Key angle" above: the outline should make that argument, not just survey the topic
+- Each section should have 3–5 concrete bullet points describing what that section covers
+- NOT include an intro/outro as separate sections — weave them into the flow
+
+Also provide:
+- 5–8 research links: specific, real URLs (documentation, papers, blog posts, benchmarks) the author should read before writing. Prefer primary sources over aggregators.
+- 5–8 research prompts: open questions the author should personally investigate, run experiments for, or look up current data on — things Gemini cannot reliably supply (recent benchmarks, version-specific behaviour, production war stories).
+
+## Output format
+
+Respond ONLY with valid JSON — no markdown fences, no explanatory text.
+
+{
+  "sections": [
+    {
+      "heading": "Section title",
+      "points": [
+        "Specific point the section will cover",
+        "Another concrete point"
+      ]
+    }
+  ],
+  "researchLinks": [
+    "https://actual-url.com/specific-page"
+  ],
+  "researchPrompts": [
+    "What is the actual latency overhead of X vs Y in a real production workload with Z characteristics?"
+  ]
+}

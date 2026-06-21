@@ -1,0 +1,34 @@
+{{systemPrompt}}
+
+## Article Context
+**Title:** {{title}}
+**Summary:** {{summary}}
+**Angle/Hook:** {{angle}}
+
+## Approved Outline
+{{outlineText}}
+
+## Research Notes & Corrections from Author
+{{userNotes}}
+
+## Reference Links
+{{linksText}}
+
+## Task
+Generate the full article draft in Markdown format, strictly following the approved outline and the author's notes.
+Also, provide 1 to 3 Mermaid diagram specifications that complement the text. 
+Describe exactly where each diagram should be placed (e.g., "After the section on Connection Pooling").
+
+## Output Format
+Respond ONLY with valid JSON. No markdown fences around the JSON, no explanatory text outside the JSON.
+
+{
+  "markdown": "# Your Title\\n\\nYour full article markdown goes here...",
+  "diagramSpecs": [
+    {
+      "placement": "After the introduction",
+      "description": "Sequence diagram showing the auth flow",
+      "mermaidCode": "sequenceDiagram\\n  Client->>Server: Req"
+    }
+  ]
+}

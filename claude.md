@@ -6,6 +6,8 @@ Each prompt assumes Claude Code can see the previous phase's code in the repo (i
 
 Use skills from C:\Users\Vaibhav\.agents\skills while writing code for best practices
 
+DO not focus much on UI and design for now, make it functional for now.
+
 ---
 
 ## Phase 0 — Project audit & plan
