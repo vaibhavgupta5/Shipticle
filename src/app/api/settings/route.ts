@@ -12,10 +12,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch from the new settings logic
+
     const settings = await getSettings(token.uid);
-    
-    // Return booleans instead of actual keys for security
+
     return NextResponse.json({
       GEMINI_API_KEY: !!settings.GEMINI_API_KEY,
       DEVTO_API_KEY: !!settings.DEVTO_API_KEY,
@@ -23,6 +22,11 @@ export async function GET(request: NextRequest) {
       HASHNODE_PUBLICATION_ID: !!settings.HASHNODE_PUBLICATION_ID,
       RAPIDAPI_KEY: !!settings.RAPIDAPI_KEY,
       MEDIUM_USER_ID: !!settings.MEDIUM_USER_ID,
+      X_PROFILE: settings.X_PROFILE || "",
+      LINKEDIN_PROFILE: settings.LINKEDIN_PROFILE || "",
+      GITHUB_PROFILE: settings.GITHUB_PROFILE || "",
+      SHORT_BIO: settings.SHORT_BIO || "",
+      PORTFOLIO_URL: settings.PORTFOLIO_URL || "",
       defaultSystemPrompt: readPromptFile("default_article_system.txt"),
     });
   } catch (error) {
@@ -41,8 +45,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    
-    // Validate input fields to only allow specific keys
+
     const allowedKeys = [
       "GEMINI_API_KEY",
       "DEVTO_API_KEY",
@@ -50,6 +53,11 @@ export async function POST(request: NextRequest) {
       "HASHNODE_PUBLICATION_ID",
       "RAPIDAPI_KEY",
       "MEDIUM_USER_ID",
+      "X_PROFILE",
+      "LINKEDIN_PROFILE",
+      "GITHUB_PROFILE",
+      "SHORT_BIO",
+      "PORTFOLIO_URL",
     ];
     
     const updates: Record<string, string> = {};

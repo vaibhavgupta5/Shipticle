@@ -1,7 +1,5 @@
 import { Timestamp } from "firebase/firestore";
 
-// ─── Shared ────────────────────────────────────────────────────────────────
-
 export type ArticleStatus =
   | "idea_pending"
   | "idea_approved"
@@ -11,6 +9,7 @@ export type ArticleStatus =
   | "draft_generated"
   | "content_approved"
   | "quality_checked"
+  | "seo_optimized"
   | "published";
 
 export type Platform = "devto" | "hashnode" | "medium";
@@ -22,8 +21,6 @@ export type PromptTemplateType =
   | "outline_generation"
   | "outline_revision";
 
-// ─── Outline ───────────────────────────────────────────────────────────────
-
 export interface OutlineSection {
   heading: string;
   points: string[];
@@ -34,19 +31,14 @@ export interface OutlineDoc {
   generatedAt: Timestamp;
 }
 
-// ─── Diagram ───────────────────────────────────────────────────────────────
-
 export interface DiagramSpec {
   id: string;
   placement: string;
   description: string;
   mermaidCode: string;
-  // Rendered SVG stored directly in Firestore (text, ~2-10KB per diagram).
-  // No external storage needed — rendered client-side via mermaid.js.
+
   svgContent: string | null;
 }
-
-// ─── Collections ───────────────────────────────────────────────────────────
 
 export interface Idea {
   id: string;
@@ -68,27 +60,25 @@ export interface Article {
   weekId: string;
   status: ArticleStatus;
 
-  // Outline stage
   outline: OutlineDoc | null;
   outlineHistory: OutlineDoc[];
   researchLinks: string[];
   researchPrompts: string[];
   userNotes: string;
 
-  // Draft stage
   content: string;
   diagramSpecs: DiagramSpec[];
 
-  // Quality stage
   aiDetectionScore: number | null;
   plagiarismScore: number | null;
   plagiarismSources: string[];
 
-  // Hero
+  seoTags?: string[];
+
   heroImageUrl: string | null;
 
-  // Meta
   promptTemplateId: string | null;
+  publishedUrls?: Record<string, string>;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -109,7 +99,8 @@ export interface PromptTemplate {
   id: string;
   userId: string;
   name: string;
-  systemPrompt: string;
+  systemPrompt: string; // The base system prompt
+  customInstructions?: string; // Optional custom instructions to append
   type: PromptTemplateType;
   isDefault: boolean;
   createdAt: Timestamp;

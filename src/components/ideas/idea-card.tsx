@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import type { Idea } from "@/lib/types";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader2, ArrowRight } from "lucide-react";
 
 interface IdeaCardProps {
   idea: Idea;
@@ -11,25 +15,22 @@ interface IdeaCardProps {
 
 const statusStyles: Record<
   string,
-  { bg: string; border: string; badge: string; label: string }
+  { variant: "default" | "secondary" | "outline" | "destructive"; label: string; cardClass: string }
 > = {
   pending: {
-    bg: "hsl(var(--card))",
-    border: "hsl(var(--border))",
-    badge: "hsl(var(--muted))",
+    variant: "secondary",
     label: "Pending",
+    cardClass: "border-border",
   },
   approved: {
-    bg: "hsl(199 89% 55% / 0.06)",
-    border: "hsl(199 89% 55% / 0.4)",
-    badge: "hsl(199 89% 55% / 0.15)",
+    variant: "default",
     label: "Approved",
+    cardClass: "border-primary bg-primary/5",
   },
   rejected: {
-    bg: "hsl(var(--card))",
-    border: "hsl(var(--border))",
-    badge: "hsl(var(--muted))",
+    variant: "outline",
     label: "Rejected",
+    cardClass: "opacity-50",
   },
 };
 
@@ -60,92 +61,62 @@ export function IdeaCard({ idea, onApproved, disabled }: IdeaCardProps) {
   }
 
   return (
-    <article
-      className="rounded-xl border p-5 flex flex-col gap-3 transition-all duration-200"
-      style={{
-        background: style.bg,
-        borderColor: style.border,
-        opacity: isRejected ? 0.5 : 1,
-      }}
-    >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-3">
-        <h3
-          className="text-sm font-semibold leading-snug flex-1"
-          style={{ color: isRejected ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))" }}
-        >
-          {idea.title}
-        </h3>
-        <span
-          className="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full"
-          style={{
-            background: style.badge,
-            color: isApproved
-              ? "hsl(var(--primary))"
-              : "hsl(var(--muted-foreground))",
-          }}
-        >
-          {style.label}
-        </span>
-      </div>
-
-      {/* Summary */}
-      <p className="text-xs leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
-        {idea.summary}
-      </p>
-
-      {/* Angle */}
-      {idea.angle && (
-        <p
-          className="text-xs italic border-l-2 pl-3"
-          style={{
-            color: "hsl(var(--muted-foreground))",
-            borderColor: "hsl(var(--primary) / 0.4)",
-          }}
-        >
-          {idea.angle}
+    <Card className={`group flex flex-col transition-all duration-300 hover:shadow-md ${style.cardClass} ${!isApproved ? 'hover:border-primary/40' : ''}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="text-base font-bold leading-tight flex-1 text-foreground/90 group-hover:text-primary transition-colors duration-300">
+            {idea.title}
+          </CardTitle>
+          <Badge variant={style.variant} className="shrink-0 shadow-sm">
+            {style.label}
+          </Badge>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="flex-1 pb-3 text-sm text-muted-foreground flex flex-col gap-4">
+        <p className="leading-relaxed">
+          {idea.summary}
         </p>
-      )}
+        
+        {idea.angle && (
+          <div className="bg-primary/5 rounded-lg p-3 border border-primary/10 relative overflow-hidden group-hover:bg-primary/10 transition-colors duration-300">
+            <div className="absolute top-0 left-0 w-1 h-full bg-primary/40" />
+            <p className="italic text-foreground/80 flex gap-2">
+              <span className="text-primary/60 font-serif text-lg leading-none">&ldquo;</span>
+              <span className="pt-0.5">{idea.angle}</span>
+            </p>
+          </div>
+        )}
+      </CardContent>
 
-      {/* Action */}
-      {idea.status === "pending" && (
-        <div className="mt-auto pt-1">
+      {(idea.status === "pending" || idea.status === "rejected") && (
+        <CardFooter className="pt-2 flex flex-col gap-2">
           {error && (
-            <p className="text-xs mb-2" style={{ color: "hsl(var(--destructive))" }}>
+            <p className="text-xs text-destructive w-full text-center bg-destructive/10 p-2 rounded">
               {error}
             </p>
           )}
-          <button
+          <Button
             id={`approve-${idea.id}`}
             type="button"
             onClick={handleApprove}
             disabled={loading || disabled}
-            className="w-full rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              background: "hsl(var(--primary) / 0.12)",
-              color: "hsl(var(--primary))",
-              border: "1px solid hsl(var(--primary) / 0.3)",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading && !disabled) {
-                (e.currentTarget as HTMLElement).style.background = "hsl(var(--primary) / 0.22)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "hsl(var(--primary) / 0.12)";
-            }}
+            variant={idea.status === "rejected" ? "outline" : "default"}
+            className={`w-full group/btn transition-all duration-300 ${idea.status === 'rejected' ? 'border-primary/30 text-primary hover:bg-primary/10' : 'shadow-sm hover:shadow'}`}
           >
             {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Approving…
-              </span>
+              </>
+            ) : idea.status === "rejected" ? (
+              "Revive & Approve"
             ) : (
-              "Approve this idea"
+              "Approve Idea"
             )}
-          </button>
-        </div>
+          </Button>
+        </CardFooter>
       )}
-    </article>
+    </Card>
   );
 }

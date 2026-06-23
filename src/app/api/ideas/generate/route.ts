@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
   const userId = token.uid;
   const weekId = getWeekId();
 
-  // ── Idempotency: don't double-generate for the same week ───────────────
   const existingSnap = await adminDb
     .collection("ideas")
     .where("userId", "==", userId)
@@ -43,23 +42,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Pull all past idea titles for dedup ────────────────────────────────
   const allIdeasSnap = await adminDb
     .collection("ideas")
     .where("userId", "==", userId)
     .get();
 
-  const existingTitles = allIdeasSnap.docs.map(
-    (d) => (d.data() as Idea).title
-  );
+  const existingTitles: string[] = [];
+  const approvedTitles: string[] = [];
+  
+  allIdeasSnap.docs.forEach((d) => {
+    const data = d.data() as Idea;
+    existingTitles.push(data.title);
+    if (data.status === "approved") {
+      approvedTitles.push(data.title);
+    }
+  });
 
-  // ── Call Gemini ────────────────────────────────────────────────────────
-  const prompt = buildIdeaGenerationPrompt({ weekId, existingTitles });
+  const prompt = buildIdeaGenerationPrompt({ weekId, existingTitles, approvedTitles });
   const model = await getModel("gemini-2.5-flash", userId);
 
   let rawText: string;
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
     rawText = result.response.text();
   } catch (err) {
     console.error("[ideas/generate] Gemini error:", err);
@@ -69,7 +78,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Parse response ─────────────────────────────────────────────────────
   let ideas: ReturnType<typeof parseIdeaResponse>;
   try {
     ideas = parseIdeaResponse(rawText);
@@ -82,7 +90,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Write to Firestore ─────────────────────────────────────────────────
   const batch = adminDb.batch();
   const createdIds: string[] = [];
 

@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "ideaId is required" }, { status: 400 });
   }
 
-  // ── Fetch the idea ─────────────────────────────────────────────────────
   const ideaSnap = await adminDb.collection("ideas").doc(ideaId).get();
   if (!ideaSnap.exists) {
     return Response.json({ error: "Idea not found" }, { status: 404 });
@@ -49,7 +48,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Idempotency: return existing article if one already exists ─────────
   if (idea.articleId) {
     const existing = await adminDb.collection("articles").doc(idea.articleId).get();
     if (existing.exists) {
@@ -57,13 +55,17 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Call Gemini ────────────────────────────────────────────────────────
   const prompt = buildOutlineGenerationPrompt(idea);
   const model = await getModel("gemini-2.5-flash", userId);
 
   let rawText: string;
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
     rawText = result.response.text();
   } catch (err) {
     console.error("[articles/generate-outline] Gemini error:", err);
@@ -73,7 +75,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Parse ──────────────────────────────────────────────────────────────
   let parsed: ReturnType<typeof parseOutlineResponse>;
   try {
     parsed = parseOutlineResponse(rawText);
@@ -86,7 +87,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Write article doc ──────────────────────────────────────────────────
   const articleId = randomUUID();
   const now = FieldValue.serverTimestamp();
 
@@ -125,7 +125,6 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     });
 
-  // ── Stamp articleId onto the idea doc ──────────────────────────────────
   await adminDb.collection("ideas").doc(ideaId).update({
     articleId,
     updatedAt: now,

@@ -43,7 +43,7 @@ export async function POST(
     return Response.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  if (article.status !== "quality_checked" && article.status !== "published") {
+  if (article.status !== "quality_checked" && article.status !== "seo_optimized" && article.status !== "published") {
     return Response.json(
       { error: `Cannot publish from status '${article.status}'` },
       { status: 409 }
@@ -60,29 +60,29 @@ export async function POST(
     const pubRef = adminDb.collection("publications").doc(`${articleId}_${platId}`);
 
     if (selectedSet.has(platId)) {
-      // Execute publish
+
       const res = await adapter.publish(article);
       
       const pubDoc: Partial<Publication> = {
         id: pubRef.id,
         userId: article.userId,
         articleId,
-        platform: platId as any,
+        platform: platId as Publication["platform"],
         status: res.status,
         platformUrl: res.platformUrl || null,
         errorMessage: res.errorMessage || null,
-        attemptedAt: FieldValue.serverTimestamp() as any,
+        attemptedAt: FieldValue.serverTimestamp() as unknown as FirebaseFirestore.Timestamp,
       };
 
       if (res.status === "posted") {
-        pubDoc.succeededAt = FieldValue.serverTimestamp() as any;
+        pubDoc.succeededAt = FieldValue.serverTimestamp() as unknown as FirebaseFirestore.Timestamp;
         anySuccess = true;
       }
 
       await pubRef.set(pubDoc, { merge: true });
       results[platId] = res;
     } else {
-      // Mark as stored_unpublished if not already posted
+
       const existing = await pubRef.get();
       if (!existing.exists || existing.data()?.status !== "posted") {
         await pubRef.set({
@@ -97,9 +97,17 @@ export async function POST(
     }
   }
 
-  if (anySuccess && article.status !== "published") {
+  if (anySuccess) {
+    const publishedUrls: Record<string, string> = { ...(article.publishedUrls || {}) };
+    for (const platId of Object.keys(results)) {
+      if (results[platId].status === "posted" && results[platId].platformUrl) {
+        publishedUrls[platId] = results[platId].platformUrl;
+      }
+    }
+
     await ref.update({
-      status: "published",
+      ...(article.status !== "published" ? { status: "published" } : {}),
+      publishedUrls,
       updatedAt: FieldValue.serverTimestamp(),
     });
   }

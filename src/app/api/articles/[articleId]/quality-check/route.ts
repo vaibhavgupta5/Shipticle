@@ -33,17 +33,40 @@ export async function POST(
     );
   }
 
-  // TODO: Integrate actual AI detection and plagiarism APIs based on user choice.
-  // For now, we mock the response to unblock the UI flow.
-  const mockAiDetectionScore = Math.floor(Math.random() * 20); // 0-19%
-  const mockPlagiarismScore = Math.floor(Math.random() * 5); // 0-4%
-  const mockPlagiarismSources = mockPlagiarismScore > 0 ? ["https://example.com/source1"] : [];
+  const cleanText = article.content.replace(/[#*`_\[\]]/g, '').slice(0, 2500);
+
+  let aiDetectionScore = 0;
+
+  try {
+    const hfRes = await fetch("https://api-inference.huggingface.co/models/roberta-base-openai-detector", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: cleanText })
+    });
+
+    if (hfRes.ok) {
+      const data = await hfRes.json();
+
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const fakeScoreObj = data[0].find((item) => item.label === "Fake");
+        if (fakeScoreObj) {
+          aiDetectionScore = Math.round(fakeScoreObj.score * 100);
+        }
+      }
+    } else {
+      console.warn("Hugging Face API error:", await hfRes.text());
+
+    }
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.warn("[articles/quality-check] HF AI Detection error:", errorMsg);
+  }
 
   await ref.update({
     status: "quality_checked",
-    aiDetectionScore: mockAiDetectionScore,
-    plagiarismScore: mockPlagiarismScore,
-    plagiarismSources: mockPlagiarismSources,
+    aiDetectionScore,
+    plagiarismScore: null,
+    plagiarismSources: [],
     updatedAt: FieldValue.serverTimestamp(),
   });
 
@@ -52,9 +75,9 @@ export async function POST(
     articleId,
     status: "quality_checked",
     scores: {
-      aiDetectionScore: mockAiDetectionScore,
-      plagiarismScore: mockPlagiarismScore,
-      plagiarismSources: mockPlagiarismSources,
+      aiDetectionScore,
+      plagiarismScore: null,
+      plagiarismSources: [],
     }
   });
 }

@@ -9,11 +9,15 @@ export interface AppSettings {
   HASHNODE_PUBLICATION_ID?: string;
   RAPIDAPI_KEY?: string;
   MEDIUM_USER_ID?: string;
+  MEDIUM_ACCESS_TOKEN?: string;
+  MEDIUM_SESSION_DATA?: string;
+  X_PROFILE?: string;
+  LINKEDIN_PROFILE?: string;
+  GITHUB_PROFILE?: string;
+  SHORT_BIO?: string;
+  PORTFOLIO_URL?: string;
 }
 
-/**
- * Fetches settings from Firestore and decrypts the sensitive fields.
- */
 export async function getSettings(userId: string): Promise<AppSettings> {
   const docSnap = await adminDb.collection("settings").doc(userId).get();
   if (!docSnap.exists) {
@@ -22,8 +26,7 @@ export async function getSettings(userId: string): Promise<AppSettings> {
   
   const data = docSnap.data() as AppSettings;
   const decrypted: AppSettings = {};
-  
-  // Decrypt each value if it exists
+
   for (const [key, value] of Object.entries(data)) {
     if (value && typeof value === "string") {
       try {
@@ -37,18 +40,13 @@ export async function getSettings(userId: string): Promise<AppSettings> {
   return decrypted;
 }
 
-/**
- * Encrypts provided settings and saves them to Firestore.
- * Values that are explicitly passed as empty strings will be deleted.
- * Values that are undefined are ignored (not updated).
- */
 export async function saveSettings(userId: string, updates: Partial<AppSettings>): Promise<void> {
   const docRef = adminDb.collection("settings").doc(userId);
-  const encryptedUpdates: Record<string, any> = {};
+  const encryptedUpdates: Record<string, string | FieldValue> = {};
   
   for (const [key, value] of Object.entries(updates)) {
     if (value === "") {
-      // Allow user to clear a setting by passing empty string
+
       encryptedUpdates[key] = FieldValue.delete();
     } else if (value && typeof value === "string") {
       encryptedUpdates[key] = encrypt(value);

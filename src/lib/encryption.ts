@@ -11,12 +11,12 @@ function getKey(salt: Buffer): Buffer {
   if (!secret) {
     throw new Error("ENCRYPTION_SECRET env var is not set. Cannot encrypt/decrypt data.");
   }
-  // Use PBKDF2 to derive a 32-byte key from the secret and salt
+
   return crypto.pbkdf2Sync(secret, salt, 100000, KEY_LENGTH, "sha512");
 }
 
 export function encrypt(text: string): string {
-  // Generate random salt and IV
+
   const salt = crypto.randomBytes(SALT_LENGTH);
   const iv = crypto.randomBytes(IV_LENGTH);
   
@@ -27,8 +27,7 @@ export function encrypt(text: string): string {
   encrypted += cipher.final("hex");
   
   const tag = cipher.getAuthTag();
-  
-  // Format: salt:iv:tag:encryptedData
+
   return `${salt.toString("hex")}:${iv.toString("hex")}:${tag.toString("hex")}:${encrypted}`;
 }
 

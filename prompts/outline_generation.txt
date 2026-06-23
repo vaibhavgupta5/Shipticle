@@ -14,6 +14,7 @@ Produce a detailed outline for this article. The outline should:
 - Reflect the "Key angle" above: the outline should make that argument, not just survey the topic
 - Each section should have 3–5 concrete bullet points describing what that section covers
 - NOT include an intro/outro as separate sections — weave them into the flow
+- Make sure to use real links. DO NOT guess any link. Make sure it works and exists.
 
 Also provide:
 - 5–8 research links: specific, real URLs (documentation, papers, blog posts, benchmarks) the author should read before writing. Prefer primary sources over aggregators.

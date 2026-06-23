@@ -1,32 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/client";
 import { getWeekId } from "@/lib/firebase/firestore";
 import type { Article, Idea } from "@/lib/types";
+import type { User } from "firebase/auth";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight } from "lucide-react";
 
 export default function DashboardHomePage() {
-  const router = useRouter();
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
   const [currentIdeas, setCurrentIdeas] = useState<Idea[]>([]);
-  const [pastArticles, setPastArticles] = useState<Article[]>([]);
+  const [pastArticles, setPastArticles] = useState<(Article & { idea?: Idea })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboard() {
       try {
         const weekId = getWeekId();
-        
-        // Wait for auth to be ready
-        const user = await new Promise<any>((resolve) => {
+
+        const user = await new Promise<User | null>((resolve) => {
           const unsub = auth.onAuthStateChanged(u => {
-            if (u) resolve(u);
-            else resolve(null); // Assuming middleware protects, but just in case
+            unsub();
+            resolve(u);
           });
-          setTimeout(() => resolve(auth.currentUser), 2000);
+          setTimeout(() => {
+            unsub();
+            resolve(auth.currentUser);
+          }, 2000);
         });
 
         if (!user) {
@@ -35,19 +41,23 @@ export default function DashboardHomePage() {
         }
 
         const userId = user.uid;
-        
-        // 1. Current Article
+
         const artQ = query(
           collection(db, "articles"),
           where("userId", "==", userId),
-          where("weekId", "==", weekId),
-          limit(1)
+          where("weekId", "==", weekId)
         );
         const artSnap = await getDocs(artQ);
         if (!artSnap.empty) {
-          setCurrentArticle(artSnap.docs[0].data() as Article);
+          const articles = artSnap.docs.map(d => ({ id: d.id, ...d.data() } as Article));
+          articles.sort((a, b) => {
+            const timeA = a.createdAt?.toMillis?.() ?? 0;
+            const timeB = b.createdAt?.toMillis?.() ?? 0;
+            return timeB - timeA;
+          });
+          setCurrentArticle(articles[0]);
         } else {
-          // If no article, check for ideas
+
           const ideaQ = query(
             collection(db, "ideas"),
             where("userId", "==", userId),
@@ -55,8 +65,7 @@ export default function DashboardHomePage() {
           );
           const ideaSnap = await getDocs(ideaQ);
           let ideas = ideaSnap.docs.map(d => d.data() as Idea);
-          
-          // Lazy Generation: If no ideas for the week exist, trigger generation!
+
           if (ideas.length === 0) {
             try {
               const token = await user.getIdToken();
@@ -76,24 +85,37 @@ export default function DashboardHomePage() {
           setCurrentIdeas(ideas);
         }
 
-        // 2. Past published articles
         const pastQ = query(
           collection(db, "articles"),
           where("userId", "==", userId),
           where("status", "==", "published")
         );
         const pastSnap = await getDocs(pastQ);
-        const past = pastSnap.docs
-          .map(d => d.data() as Article)
-          .filter(a => a.weekId !== weekId);
-        
-        // Sort and limit client-side to avoid composite index requirements
+        const past = pastSnap.docs.map(d => d.data() as Article);
+
         past.sort((a, b) => {
           const timeA = a.createdAt?.toMillis?.() ?? 0;
           const timeB = b.createdAt?.toMillis?.() ?? 0;
           return timeB - timeA;
         });
-        setPastArticles(past.slice(0, 5));
+        
+        const topPast = past.slice(0, 5);
+        const pastWithIdeas = await Promise.all(topPast.map(async a => {
+           if (!a.ideaId) return a;
+           try {
+
+             const { doc, getDoc } = await import("firebase/firestore");
+             const ideaDoc = await getDoc(doc(db, "ideas", a.ideaId));
+             if (ideaDoc.exists()) {
+               return { ...a, idea: ideaDoc.data() as Idea };
+             }
+             return a;
+           } catch {
+             return a;
+           }
+        }));
+        
+        setPastArticles(pastWithIdeas);
       } catch (err) {
         console.error("Dashboard load error", err);
       } finally {
@@ -104,12 +126,17 @@ export default function DashboardHomePage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading dashboard...</div>;
+    return (
+      <div className="max-w-5xl mx-auto w-full space-y-8">
+        <Skeleton className="h-10 w-[250px]" />
+        <Skeleton className="h-[200px] w-full rounded-xl" />
+        <Skeleton className="h-[150px] w-full rounded-xl" />
+      </div>
+    );
   }
 
   const weekId = getWeekId();
 
-  // Determine current actionable state
   let actionTitle = "Generate Ideas";
   let actionDesc = "Start this week's workflow by generating 10 new ideas.";
   let actionUrl = "/dashboard/ideas";
@@ -153,26 +180,30 @@ export default function DashboardHomePage() {
   }
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="max-w-5xl mx-auto w-full space-y-8">
       <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
 
-      <section className="p-6 rounded-2xl border bg-card text-card-foreground">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 flex-wrap pb-4">
           <div>
-            <h2 className="text-lg font-semibold mb-1">Current Week: {weekId}</h2>
-            <p className="text-muted-foreground text-sm mb-4">
+            <CardTitle className="text-lg mb-1">Current Week: {weekId}</CardTitle>
+            <CardDescription className="text-sm">
               Status: <strong className="text-primary">{actionTitle}</strong> — {actionDesc}
-            </p>
+            </CardDescription>
           </div>
-          <Link
-            href={actionUrl}
-            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm transition-opacity hover:opacity-90"
-          >
-            {buttonText}
-          </Link>
-        </div>
+          <div className="flex items-center gap-3">
+            <Button asChild>
+              <Link href={actionUrl}>{buttonText}</Link>
+            </Button>
+            {currentArticle?.status === "published" && (
+              <Button variant="secondary" asChild>
+                <Link href="/dashboard/ideas">Publish one more</Link>
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
 
-        {/* Visual Progress Bar Approximation */}
         <div className="mt-8 pt-6 border-t flex items-center justify-between gap-2 overflow-x-auto text-xs font-medium text-muted-foreground">
           {["Ideas", "Outline", "Draft", "Quality", "Publish"].map((step, i) => {
             let active = false;
@@ -210,24 +241,36 @@ export default function DashboardHomePage() {
             );
           })}
         </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <section>
-        <h2 className="text-lg font-semibold mb-4">Past Publications</h2>
+        <h2 className="text-xl font-bold tracking-tight mb-4">Published Articles</h2>
         {pastArticles.length === 0 ? (
-          <p className="text-sm text-muted-foreground p-4 border rounded-xl bg-card">No past articles found.</p>
+          <p className="text-sm text-muted-foreground p-6 border rounded-xl bg-card text-center">No articles published yet.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pastArticles.map(a => (
-              <Link key={a.id} href={`/dashboard/articles/${a.id}`} className="block p-4 border rounded-xl hover:bg-card/50 transition-colors">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-medium">Week {a.weekId}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">Status: Published</p>
+              <Card key={a.id} className="hover:bg-muted/50 transition-colors flex flex-col h-full group">
+                <Link href={`/dashboard/articles/${a.id}`} className="flex flex-col flex-1 p-5">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <Badge variant="outline">Week {a.weekId}</Badge>
+                      <Badge variant="default" className="bg-primary/20 text-primary hover:bg-primary/30 border-transparent">Published</Badge>
+                    </div>
+                    <h3 className="font-semibold text-lg leading-tight line-clamp-2">{a.idea?.title || "Untitled Article"}</h3>
+                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{a.idea?.summary}</p>
                   </div>
-                  <span className="text-primary text-sm">View →</span>
-                </div>
-              </Link>
+                  <div className="mt-auto flex justify-between items-center pt-4 border-t">
+                    <span className="text-xs text-muted-foreground">
+                      {a.createdAt && typeof a.createdAt.toMillis === "function" ? new Date(a.createdAt.toMillis()).toLocaleDateString() : "Just now"}
+                    </span>
+                    <span className="text-primary text-sm font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      View <ArrowRight className="w-4 h-4" />
+                    </span>
+                  </div>
+                </Link>
+              </Card>
             ))}
           </div>
         )}

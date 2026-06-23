@@ -93,34 +93,16 @@ function LoginContent() {
         borderColor: "hsl(var(--border))",
       }}
     >
-      {/* Logo / brand */}
+
       <div className="mb-8 text-center">
-        <div
-          className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4"
-          style={{ background: "hsl(var(--primary) / 0.15)" }}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="w-6 h-6"
-            fill="none"
-            stroke="hsl(var(--primary))"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Shipticle
+        <h1 className="text-4xl font-bold tracking-tighter text-foreground">
+          Shipticle<span className="text-primary">.</span>
         </h1>
         <p className="mt-1 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>
           AI editorial pipeline — sign in to continue
         </p>
       </div>
 
-      {/* Buttons */}
       <div className="flex flex-col gap-3">
         <button
           id="sign-in-google"

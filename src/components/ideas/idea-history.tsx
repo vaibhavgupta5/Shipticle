@@ -13,7 +13,7 @@ const statusColor: Record<string, string> = {
 };
 
 export function IdeaHistory({ ideas }: IdeaHistoryProps) {
-  // Group by weekId, sorted newest first
+
   const byWeek = ideas.reduce<Record<string, Idea[]>>(
     (acc, idea) => {
       if (!acc[idea.weekId]) acc[idea.weekId] = [];
@@ -24,7 +24,6 @@ export function IdeaHistory({ ideas }: IdeaHistoryProps) {
   );
 
   const sortedWeeks = Object.keys(byWeek).sort((a, b) => (a > b ? -1 : 1));
-
 
   if (sortedWeeks.length === 0) {
     return (

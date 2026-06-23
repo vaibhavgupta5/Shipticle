@@ -14,15 +14,10 @@ import {
 } from "firebase/firestore";
 import { db } from "./client";
 
-
-// ─── Collection refs ────────────────────────────────────────────────────────
-
 export const ideasRef = () => collection(db, "ideas");
 export const articlesRef = () => collection(db, "articles");
 export const publicationsRef = () => collection(db, "publications");
 export const promptTemplatesRef = () => collection(db, "promptTemplates");
-
-// ─── Generic helpers ────────────────────────────────────────────────────────
 
 export async function getDocById<T extends DocumentData>(
   collectionName: string,
@@ -65,8 +60,6 @@ export async function updateDocById(
   });
 }
 
-// ─── Week utilities ─────────────────────────────────────────────────────────
-
 export function getWeekId(date: Date = new Date()): string {
   const d = new Date(
     Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
@@ -78,8 +71,6 @@ export function getWeekId(date: Date = new Date()): string {
   );
   return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 }
-
-// ─── Idea queries ────────────────────────────────────────────────────────────
 
 export function ideasByWeek(userId: string, weekId: string) {
   return [
@@ -94,8 +85,6 @@ export function allIdeasForDedup(userId: string) {
     where("userId", "==", userId),
   ] as QueryConstraint[];
 }
-
-// ─── Article queries ─────────────────────────────────────────────────────────
 
 export function articlesByWeek(userId: string, weekId: string) {
   return [

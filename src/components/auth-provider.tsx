@@ -10,7 +10,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setLoading = useAuthStore((s) => s.setLoading);
 
   useEffect(() => {
-    // onIdTokenChanged fires on sign-in, sign-out, and token refresh
+
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
       setUser(user);
       setLoading(false);

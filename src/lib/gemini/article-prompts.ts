@@ -1,6 +1,3 @@
-/**
- * Article Generation Prompts
- */
 
 import type { OutlineDoc, Idea, DiagramSpec, PromptTemplate } from "@/lib/types";
 import { readPromptFile } from "./prompts-loader";
@@ -12,13 +9,11 @@ export interface ArticleGenerationOutput {
 
 export const DEFAULT_ARTICLE_SYSTEM_PROMPT = readPromptFile("default_article_system.txt");
 
-/**
- * PROMPT DESIGN NOTES — article generation:
- *
- * This prompt asks Gemini for a JSON object containing both the full markdown string
- * and an array of diagram specifications. This allows us to separate the text content
- * from the Mermaid specs, which we will later render directly using mermaid.js in Phase 5.
- */
+export interface SeoOptimizationOutput {
+  content: string;
+  seoTags: string[];
+}
+
 export function buildArticleGenerationPrompt(
   idea: Idea,
   outline: OutlineDoc,
@@ -64,5 +59,60 @@ export function parseArticleResponse(rawText: string): ArticleGenerationOutput {
   return {
     markdown: parsed.markdown,
     diagramSpecs: Array.isArray(parsed.diagramSpecs) ? parsed.diagramSpecs : [],
+  };
+}
+
+export function buildSeoOptimizationPrompt(
+  draft: string,
+  aiScore: number,
+  authorProfile: {
+    bio: string;
+    x: string;
+    linkedin: string;
+    github: string;
+    portfolio: string;
+  }
+): string {
+  const template = readPromptFile("seo_prompt.txt");
+  
+  const profileText = `
+Short Bio: ${authorProfile.bio || "None"}
+X (Twitter): ${authorProfile.x || "None"}
+LinkedIn: ${authorProfile.linkedin || "None"}
+GitHub: ${authorProfile.github || "None"}
+Portfolio URL: ${authorProfile.portfolio || "None"}
+  `.trim();
+
+  return `
+${template}
+
+---
+Here are the inputs for your task:
+
+AI_DETECTION_SCORE: ${aiScore}%
+
+AUTHOR_PROFILE:
+${profileText}
+
+ARTICLE_DRAFT:
+${draft}
+  `.trim();
+}
+
+export function parseSeoResponse(rawText: string): SeoOptimizationOutput {
+  let text = rawText.trim();
+  if (text.startsWith("\`\`\`")) {
+    text = text.replace(/^\`\`\`[a-z]*\n?/, "").replace(/\n?\`\`\`$/, "").trim();
+  }
+
+  const parsed = JSON.parse(text) as SeoOptimizationOutput;
+
+  if (!parsed.content || typeof parsed.content !== "string") {
+    throw new Error("Gemini returned invalid or missing content field");
+  }
+
+  return {
+    content: parsed.content,
+    seoTags: Array.isArray(parsed.seoTags) ? parsed.seoTags : [],
   };
 }

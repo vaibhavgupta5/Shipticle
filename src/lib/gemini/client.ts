@@ -13,7 +13,6 @@ export async function getModel(modelName: "gemini-2.5-flash" | "gemini-2.0-flash
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: modelName });
 
-  // Wrap generateContent with retry logic for 429 rate limits
   const originalGenerateContent = model.generateContent.bind(model);
   model.generateContent = async function (...args: Parameters<typeof originalGenerateContent>) {
     let retries = 3;

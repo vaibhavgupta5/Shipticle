@@ -7,7 +7,7 @@ const SESSION_COOKIE_OPTIONS = {
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
-  // 5 days
+
   maxAge: 60 * 60 * 24 * 5,
 };
 
@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing id token" }, { status: 400 });
     }
 
-    // Verify the token with Firebase Admin — throws if invalid/expired
     await adminAuth.verifyIdToken(idToken);
 
     const response = NextResponse.json({ ok: true });

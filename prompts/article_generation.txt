@@ -23,7 +23,7 @@ Describe exactly where each diagram should be placed (e.g., "After the section o
 Respond ONLY with valid JSON. No markdown fences around the JSON, no explanatory text outside the JSON.
 
 {
-  "markdown": "# Your Title\\n\\nYour full article markdown goes here...",
+  "markdown": "<insert the complete, fully written article in markdown format here>",
   "diagramSpecs": [
     {
       "placement": "After the introduction",

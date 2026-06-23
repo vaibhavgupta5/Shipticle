@@ -2,6 +2,7 @@ import type { Article } from "@/lib/types";
 import type { PlatformAdapter, PublishResult } from "./types";
 import { adminDb } from "@/lib/firebase/admin";
 import { getSettings } from "../settings";
+import zlib from "zlib";
 
 export const devtoAdapter: PlatformAdapter = {
   id: "devto",
@@ -15,27 +16,25 @@ export const devtoAdapter: PlatformAdapter = {
     }
 
     try {
-      // Fetch idea to get the title
       const ideaSnap = await adminDb.collection("ideas").doc(article.ideaId).get();
       const title = ideaSnap.exists ? ideaSnap.data()?.title || "Draft Article" : "Draft Article";
 
       let bodyMarkdown = article.content;
-      if (article.heroImageUrl) {
-        bodyMarkdown = `![Hero Image](${article.heroImageUrl})\n\n${bodyMarkdown}`;
-      }
 
-      // Inline diagrams
-      if (article.diagramSpecs && article.diagramSpecs.length > 0) {
-        bodyMarkdown += "\n\n---\n\n## Diagrams\n";
-        for (const spec of article.diagramSpecs) {
-          if (spec.svgContent) {
-            bodyMarkdown += `\n**${spec.description}** (${spec.placement})\n\n`;
-            // Dev.to allows most HTML. We can just insert the SVG string directly,
-            // but a safe bet is to wrap it or provide the raw mermaid block.
-            bodyMarkdown += `<div align="center">\n${spec.svgContent}\n</div>\n`;
-          }
+      const mainImageUrl = article.heroImageUrl || `https://placehold.co/1000x420/0f172a/ffffff.png?text=${encodeURIComponent(title)}&font=montserrat`;
+
+      bodyMarkdown = bodyMarkdown.replace(/```mermaid\s*\n([\s\S]*?)\n```/g, (match, p1) => {
+        const codeString = p1.trim();
+        try {
+          const data = Buffer.from(codeString, 'utf8');
+          const compressed = zlib.deflateSync(data, { level: 9 });
+          const base64 = compressed.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+          return `\n\n![Diagram](https://kroki.io/mermaid/png/${base64})\n\n`;
+        } catch (e) {
+          console.error("Failed to compress mermaid for dev.to", e);
+          return match;
         }
-      }
+      });
 
       const res = await fetch("https://dev.to/api/articles", {
         method: "POST",
@@ -47,7 +46,14 @@ export const devtoAdapter: PlatformAdapter = {
           article: {
             title,
             body_markdown: bodyMarkdown,
-            published: false, // set to false so the user can review before making public
+            main_image: mainImageUrl,
+            published: true,
+            tags: article.seoTags 
+              ? article.seoTags
+                  .map(t => t.toLowerCase().replace(/[^a-z0-9]/g, ""))
+                  .filter(t => t.length > 0)
+                  .slice(0, 4) 
+              : undefined,
           },
         }),
       });
@@ -57,8 +63,17 @@ export const devtoAdapter: PlatformAdapter = {
         return { status: "failed", errorMessage: `Dev.to API error: ${res.status} ${errText}` };
       }
 
-      const data = await res.json();
-      return { status: "posted", platformUrl: data.url };
+      const resText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        return {
+          status: "failed",
+          errorMessage: `Failed to parse JSON response from Dev.to. Status: ${res.status}. Response: ${resText.slice(0, 300)}`,
+        };
+      }
+      return { status: "posted", platformUrl: data.url || "https://dev.to" };
     } catch (err) {
       return { status: "failed", errorMessage: err instanceof Error ? err.message : String(err) };
     }

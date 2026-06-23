@@ -35,7 +35,6 @@ export const hashnodeAdapter: PlatformAdapter = {
         }
       }
 
-      // Hashnode GraphQL mutation
       const query = `
         mutation PublishPost($input: PublishPostInput!) {
           publishPost(input: $input) {
@@ -69,12 +68,37 @@ export const hashnodeAdapter: PlatformAdapter = {
         return { status: "failed", errorMessage: `Hashnode API error: ${res.status} ${errText}` };
       }
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const resText = await res.text();
+
+      if (contentType.includes("text/html") || resText.trim().startsWith("<!DOCTYPE html>") || resText.trim().startsWith("<html")) {
+        if (resText.includes("paid offering") || resText.includes("Pro plan") || resText.includes("moving to a paid")) {
+          return {
+            status: "failed",
+            errorMessage: "Hashnode GraphQL API now requires a paid Pro plan. Please upgrade your Hashnode publication to a Pro plan or verify your API settings.",
+          };
+        }
+        return {
+          status: "failed",
+          errorMessage: `Hashnode returned HTML instead of JSON. Status: ${res.status}. Response: ${resText.slice(0, 300)}`,
+        };
+      }
+
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        return {
+          status: "failed",
+          errorMessage: `Failed to parse JSON response from Hashnode. Status: ${res.status}. Response: ${resText.slice(0, 300)}`,
+        };
+      }
+
       if (data.errors && data.errors.length > 0) {
         return { status: "failed", errorMessage: `Hashnode GQL error: ${data.errors[0].message}` };
       }
 
-      return { status: "posted", platformUrl: data.data.publishPost.post.url };
+      return { status: "posted", platformUrl: data.data?.publishPost?.post?.url || "https://hashnode.com" };
     } catch (err) {
       return { status: "failed", errorMessage: err instanceof Error ? err.message : String(err) };
     }

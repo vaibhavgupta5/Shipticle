@@ -7,7 +7,9 @@ CRITICAL INSTRUCTIONS FOR VOICE & TONE:
 - Vary sentence length. Use short, punchy sentences. Avoid long, meandering paragraphs.
 - Be highly specific. Use concrete examples, realistic code snippets, and specific numbers.
 - Avoid plagiarism: synthesize concepts using your own original phrasing. Do not copy source phrasing directly.
+- Embed relevant external links to authoritative documentation, repos, or tools where applicable to improve SEO. Ensure these are real, unbroken URLs.
 - Do NOT write an explicit "Conclusion" section unless it provides a strong, contrarian summary or call to action.
+- Never use emm dashes or double dash or semicolons.
 
 CRITICAL INSTRUCTIONS FOR DIAGRAMS:
 - Identify 1 to 3 places where a visual diagram (flowchart, sequence, architecture, state diagram) would clarify complex logic.

@@ -4,44 +4,51 @@
 /* ─── Design tokens ────────────────────────────────────────────────────────── */
 
 :root {
-  --background: 222 20% 6%;
-  --foreground: 210 20% 92%;
+  /* Warm near-black (#0B0906) */
+  --background: 36 30% 3%;
+  /* Warm parchment (#E8D9B0) */
+  --foreground: 44 54% 80%;
 
-  --card: 222 20% 9%;
-  --card-foreground: 210 20% 92%;
+  /* Slightly lighter warm dark for cards */
+  --card: 36 25% 5%;
+  --card-foreground: 44 54% 80%;
 
-  --popover: 222 20% 9%;
-  --popover-foreground: 210 20% 92%;
+  --popover: 36 25% 5%;
+  --popover-foreground: 44 54% 80%;
 
-  --primary: 199 89% 55%;
-  --primary-foreground: 222 20% 6%;
+  /* Amber accent (#F59E0B) */
+  --primary: 38 92% 50%;
+  --primary-foreground: 36 30% 3%;
 
-  --secondary: 222 20% 14%;
-  --secondary-foreground: 210 20% 80%;
+  /* Subtle muted elements */
+  --secondary: 37 25% 10%;
+  --secondary-foreground: 44 40% 70%;
 
-  --muted: 222 20% 12%;
-  --muted-foreground: 210 15% 55%;
+  --muted: 37 25% 9%;
+  --muted-foreground: 44 20% 55%;
 
-  --accent: 199 89% 45%;
-  --accent-foreground: 210 20% 92%;
+  --accent: 38 92% 40%;
+  --accent-foreground: 44 54% 90%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 222 20% 16%;
-  --input: 222 20% 16%;
-  --ring: 199 89% 55%;
+  /* Warm hairline border color (#2E2516) */
+  --border: 37 35% 13%;
+  --input: 37 35% 13%;
+  --ring: 38 92% 50%;
 
-  --radius: 0.625rem;
+  /* Tighter radii for a more precision-tool feel */
+  --radius: 0.5rem;
 
-  --sidebar-background: 222 20% 8%;
-  --sidebar-foreground: 210 15% 75%;
-  --sidebar-primary: 199 89% 55%;
-  --sidebar-primary-foreground: 222 20% 6%;
-  --sidebar-accent: 222 20% 13%;
-  --sidebar-accent-foreground: 210 20% 85%;
-  --sidebar-border: 222 20% 14%;
-  --sidebar-ring: 199 89% 55%;
+  --sidebar-background: 36 30% 3%;
+  --sidebar-foreground: 44 54% 80%;
+  --sidebar-primary: 38 92% 50%;
+  --sidebar-primary-foreground: 36 30% 3%;
+  --sidebar-accent: 37 25% 10%;
+  --sidebar-accent-foreground: 44 40% 70%;
+  --sidebar-border: 37 35% 13%;
+  --sidebar-ring: 38 92% 50%;
 }
 
 @theme inline {
@@ -75,8 +82,8 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-mono);
+  --font-mono: var(--font-mono);
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────────── */
@@ -90,7 +97,7 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 /* ─── Scrollbar ────────────────────────────────────────────────────────────── */

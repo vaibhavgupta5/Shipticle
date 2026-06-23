@@ -1,22 +1,98 @@
 import type { Article } from "@/lib/types";
 import type { PlatformAdapter, PublishResult } from "./types";
 import { adminDb } from "@/lib/firebase/admin";
-
-import { getSettings } from "../settings";
+import { chromium } from "playwright";
+import { getSettings, saveSettings } from "../settings";
 
 export const mediumAdapter: PlatformAdapter = {
   id: "medium",
-  name: "Medium (Unofficial)",
+  name: "Medium (Browser Automation)",
   publish: async (article: Article): Promise<PublishResult> => {
     const settings = await getSettings(article.userId);
-    const rapidApiKey = settings.RAPIDAPI_KEY || process.env.RAPIDAPI_KEY;
-    const mediumUserId = settings.MEDIUM_USER_ID || process.env.MEDIUM_USER_ID;
+    const publicationId = process.env.MEDIUM_PUBLICATION_ID;
+    const sessionData = settings.MEDIUM_SESSION_DATA;
 
-    if (!rapidApiKey || !mediumUserId) {
-      return { status: "failed", errorMessage: "RAPIDAPI_KEY or MEDIUM_USER_ID not configured." };
+    const isProduction = process.env.NODE_ENV === "production" || !!process.env.RENDER;
+    const isHeadless = isProduction;
+
+    if (isHeadless && !sessionData) {
+      return {
+        status: "failed",
+        errorMessage: "Medium session cookies not found in database. Please publish from your local environment first to authenticate."
+      };
     }
 
+    console.log(`Launching Playwright browser (headless: ${isHeadless})...`);
+    const browser = await chromium.launch({
+      headless: isHeadless,
+      args: [
+        "--disable-blink-features=AutomationControlled",
+      ]
+    });
+    
+    const contextOptions = {
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+      locale: "en-US",
+    };
+    
+    if (sessionData) {
+      try {
+        (contextOptions as unknown as {storageState: string}).storageState = JSON.parse(sessionData);
+      } catch (e) {
+        console.error("Failed to parse Medium session data from database:", e);
+      }
+    }
+
+    const context = await browser.newContext(contextOptions);
+
     try {
+      const page = await context.newPage();
+
+      if (!isHeadless) {
+        await page.addInitScript(() => {
+          document.addEventListener("click", (e) => {
+            const dot = document.createElement("div");
+            dot.style.position = "absolute";
+            dot.style.left = `${e.pageX - 10}px`;
+            dot.style.top = `${e.pageY - 10}px`;
+            dot.style.width = "20px";
+            dot.style.height = "20px";
+            dot.style.borderRadius = "50%";
+            dot.style.backgroundColor = "rgba(255, 0, 0, 0.6)";
+            dot.style.border = "2px solid red";
+            dot.style.zIndex = "999999";
+            dot.style.pointerEvents = "none";
+            document.body.appendChild(dot);
+            setTimeout(() => dot.remove(), 800);
+          }, true);
+        });
+      }
+
+      console.log("Navigating to Medium story editor...");
+      await page.goto("https://medium.com/new-story");
+
+      let isOnEditor = false;
+      const timeoutSec = isHeadless ? 25 : 300; // 25s in headless production, 5m locally for login
+      
+      for (let i = 0; i < timeoutSec / 2; i++) {
+        const url = page.url();
+        if (url.includes("/new-story") || (url.includes("/p/") && url.includes("/edit"))) {
+          isOnEditor = true;
+          break;
+        }
+        await page.waitForTimeout(2000);
+      }
+
+      if (!isOnEditor) {
+        throw new Error(
+          isHeadless
+            ? "Session expired or invalid. Please publish locally to refresh your session."
+            : "Timeout waiting for user to sign in and load the editor."
+        );
+      }
+
+      console.log("Editor loaded. Preparing article title and content...");
       const ideaSnap = await adminDb.collection("ideas").doc(article.ideaId).get();
       const title = ideaSnap.exists ? ideaSnap.data()?.title || "Draft Article" : "Draft Article";
 
@@ -35,45 +111,52 @@ export const mediumAdapter: PlatformAdapter = {
         }
       }
 
-      // Unofficial Medium API (via RapidAPI) placeholder structure
-      const url = `https://medium2.p.rapidapi.com/user/${mediumUserId}/posts`;
-      const payload = {
-        title,
-        contentFormat: "markdown",
-        content: bodyMarkdown,
-        publishStatus: "draft", // default to draft for safety
-      };
+      const titleField = page.locator('h3[data-placeholder="Title"], h3.graf--title, [contenteditable="true"] h3').first();
+      await titleField.waitFor({ state: "visible", timeout: 15000 });
+      await titleField.focus();
+      
+      if (!isHeadless) {
+        await titleField.evaluate((el: HTMLElement) => {
+          el.style.border = "3px solid red";
+          el.style.backgroundColor = "yellow";
+        });
+        await page.waitForTimeout(500);
+      }
+      
+      await titleField.fill(title);
 
-      console.log("[Medium Publish Attempt]", JSON.stringify({ url, payload })); // Requirement: basic logging/visibility
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(500);
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-RapidAPI-Key": rapidApiKey,
-          "X-RapidAPI-Host": "medium2.p.rapidapi.com",
-        },
-        body: JSON.stringify(payload),
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.evaluate((text) => navigator.clipboard.writeText(text), bodyMarkdown);
+
+      const modifier = process.platform === "darwin" ? "Meta" : "Control";
+      await page.keyboard.press(`${modifier}+V`);
+      console.log("Pasted article content. Waiting for auto-save...");
+      await page.waitForTimeout(5000);
+
+      const finalUrl = page.url().replace("/edit", "");
+
+      const newSessionState = await context.storageState();
+      await saveSettings(article.userId, {
+        MEDIUM_SESSION_DATA: JSON.stringify(newSessionState)
       });
 
-      console.log("[Medium Publish Response Status]", res.status);
+      console.log("Medium Draft created successfully:", finalUrl);
 
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("[Medium Publish Error]", errText);
-        return { status: "failed", errorMessage: `Medium unofficial API error: ${res.status} ${errText}` };
-      }
-
-      const data = await res.json();
-      console.log("[Medium Publish Success Payload]", data);
-      
-      // Attempt to extract the URL from the response (depends on exact API spec)
-      const platformUrl = data.url || data.data?.url || "https://medium.com/me/stories/drafts";
-
-      return { status: "posted", platformUrl };
+      return {
+        status: "posted",
+        platformUrl: finalUrl
+      };
     } catch (err) {
-      console.error("[Medium Publish Exception]", err);
-      return { status: "failed", errorMessage: err instanceof Error ? err.message : String(err) };
+      console.error("Medium Browser Automation Exception:", err);
+      return {
+        status: "failed",
+        errorMessage: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      await browser.close();
     }
-  },
+  }
 };

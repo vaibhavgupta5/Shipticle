@@ -16,8 +16,7 @@ export async function POST(
   }
 
   const { articleId } = await params;
-  
-  // payload is array of diagram updates: { id: string, svgContent: string }
+
   const body = await request.json().catch(() => null);
   if (!body || !Array.isArray(body.diagrams)) {
     return Response.json({ error: "Invalid payload" }, { status: 400 });
@@ -31,8 +30,7 @@ export async function POST(
   }
 
   const article = snap.data() as Article;
-  
-  // Update specs with rendered SVGs
+
   const updatedSpecs = [...(article.diagramSpecs || [])];
   let updatedCount = 0;
 

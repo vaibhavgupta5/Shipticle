@@ -28,7 +28,6 @@ export async function POST(
   const { articleId } = await params;
   const userId = token.uid;
 
-  // ── Fetch article ──────────────────────────────────────────────────────
   const ref = adminDb.collection("articles").doc(articleId);
   const snap = await ref.get();
 
@@ -53,11 +52,9 @@ export async function POST(
     return Response.json({ error: "Article has no approved outline" }, { status: 400 });
   }
 
-  // ── Fetch parent idea ──────────────────────────────────────────────────
   const ideaSnap = await adminDb.collection("ideas").doc(article.ideaId).get();
   const idea = { id: ideaSnap.id, ...ideaSnap.data() } as Idea;
 
-  // ── Fetch Custom System Prompt (if configured) ───────────────────────
   let systemPrompt = DEFAULT_ARTICLE_SYSTEM_PROMPT;
   try {
     const templatesSnap = await adminDb
@@ -69,13 +66,18 @@ export async function POST(
       .get();
       
     if (!templatesSnap.empty) {
-      systemPrompt = templatesSnap.docs[0].data().systemPrompt;
+      const templateData = templatesSnap.docs[0].data();
+      if (templateData.systemPrompt) {
+        systemPrompt = templateData.systemPrompt;
+      }
+      if (templateData.customInstructions) {
+        systemPrompt += `\n\n=== USER CUSTOM INSTRUCTIONS ===\n${templateData.customInstructions}`;
+      }
     }
   } catch (err) {
     console.warn("Could not fetch custom prompt template, using default.", err);
   }
 
-  // ── Call Gemini ────────────────────────────────────────────────────────
   const prompt = buildArticleGenerationPrompt(
     idea,
     article.outline,
@@ -88,7 +90,12 @@ export async function POST(
 
   let rawText: string;
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
     rawText = result.response.text();
   } catch (err) {
     console.error("[articles/generate-draft] Gemini error:", err);
@@ -98,7 +105,6 @@ export async function POST(
     );
   }
 
-  // ── Parse ──────────────────────────────────────────────────────────────
   let parsed: ReturnType<typeof parseArticleResponse>;
   try {
     parsed = parseArticleResponse(rawText);
@@ -110,9 +116,6 @@ export async function POST(
     );
   }
 
-  // ── Write draft and specs ─────────────────────────────────────────────
-  
-  // Assign UUIDs to diagram specs
   const diagramSpecs = parsed.diagramSpecs.map(spec => ({
     ...spec,
     id: randomUUID(),

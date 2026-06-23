@@ -18,7 +18,6 @@ export async function POST(
 
   const { ideaId } = await params;
 
-  // ── Verify the target idea exists ──────────────────────────────────────
   const ideaRef = adminDb.collection("ideas").doc(ideaId);
   const ideaSnap = await ideaRef.get();
 
@@ -33,30 +32,14 @@ export async function POST(
     return Response.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  if (idea.status !== "pending") {
+  if (idea.status !== "pending" && idea.status !== "rejected") {
     return Response.json({ error: `Idea is already ${idea.status}` }, { status: 400 });
   }
 
-  // ── Fetch all sibling ideas for the same week ──────────────────────────
-  const siblingsSnap = await adminDb
-    .collection("ideas")
-    .where("userId", "==", idea.userId)
-    .where("weekId", "==", idea.weekId)
-    .get();
-
-  // ── Batch: approve target, reject all others ───────────────────────────
-  const batch = adminDb.batch();
-  const now = FieldValue.serverTimestamp();
-
-  for (const doc of siblingsSnap.docs) {
-    if (doc.id === ideaId) {
-      batch.update(doc.ref, { status: "approved", updatedAt: now });
-    } else if ((doc.data() as Idea).status === "pending") {
-      batch.update(doc.ref, { status: "rejected", updatedAt: now });
-    }
-  }
-
-  await batch.commit();
+  await ideaRef.update({ 
+    status: "approved", 
+    updatedAt: FieldValue.serverTimestamp() 
+  });
 
   return Response.json({ ok: true, approvedId: ideaId, weekId: idea.weekId });
 }

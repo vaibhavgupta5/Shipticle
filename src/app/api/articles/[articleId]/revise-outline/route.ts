@@ -31,7 +31,6 @@ export async function POST(
     return Response.json({ error: "userNotes cannot be empty" }, { status: 400 });
   }
 
-  // ── Fetch article ──────────────────────────────────────────────────────
   const ref = adminDb.collection("articles").doc(articleId);
   const snap = await ref.get();
 
@@ -56,17 +55,20 @@ export async function POST(
     return Response.json({ error: "Article has no outline to revise" }, { status: 400 });
   }
 
-  // ── Fetch parent idea for context ──────────────────────────────────────
   const ideaSnap = await adminDb.collection("ideas").doc(article.ideaId).get();
   const idea = { id: ideaSnap.id, ...ideaSnap.data() } as Idea;
 
-  // ── Call Gemini ────────────────────────────────────────────────────────
   const prompt = buildOutlineRevisionPrompt(article.outline, userNotes, idea);
   const model = await getModel("gemini-2.5-flash", userId);
 
   let rawText: string;
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
     rawText = result.response.text();
   } catch (err) {
     console.error("[articles/revise-outline] Gemini error:", err);
@@ -76,7 +78,6 @@ export async function POST(
     );
   }
 
-  // ── Parse ──────────────────────────────────────────────────────────────
   let parsed: ReturnType<typeof parseOutlineResponse>;
   try {
     parsed = parseOutlineResponse(rawText);
@@ -88,14 +89,6 @@ export async function POST(
     );
   }
 
-  // ── Write: push old outline to history, set new outline ───────────────
-  //
-  // Version history design: we store the full outlineHistory[] array on the
-  // article doc (not a sub-collection). Each entry is an OutlineDoc snapshot.
-  // Rationale: revision loops are typically < 5 iterations; the array stays
-  // well under Firestore's 1MB document limit; and it avoids the extra round
-  // trip of a sub-collection query on every page load.
-  //
   const oldOutlineForHistory = {
     sections: article.outline.sections,
     generatedAt: article.outline.generatedAt ?? Timestamp.now(),
