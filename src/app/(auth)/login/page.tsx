@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  GoogleAuthProvider,
-  GithubAuthProvider,
-  signInWithPopup,
-} from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -32,13 +28,6 @@ function GoogleIcon() {
   );
 }
 
-function GitHubIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
-      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-    </svg>
-  );
-}
 
 import { Suspense } from "react";
 
@@ -47,18 +36,15 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? "/dashboard";
 
-  const [loading, setLoading] = useState<"google" | "github" | null>(null);
+  const [loading, setLoading] = useState<"google" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function signIn(provider: "google" | "github") {
+  async function signIn(provider: "google") {
     setLoading(provider);
     setError(null);
 
     try {
-      const authProvider =
-        provider === "google"
-          ? new GoogleAuthProvider()
-          : new GithubAuthProvider();
+      const authProvider = new GoogleAuthProvider();
 
       const result = await signInWithPopup(auth, authProvider);
       const idToken = await result.user.getIdToken();
@@ -77,6 +63,8 @@ function LoginContent() {
       const msg = err instanceof Error ? err.message : "Sign-in failed";
       if (msg.includes("popup-closed")) {
         setError(null);
+      } else if (msg.includes("auth/unauthorized-domain")) {
+        setError("This domain is not authorized for OAuth operations. Please add your current URL to the Authorized Domains list in your Firebase Authentication console.");
       } else {
         setError(msg);
       }
@@ -130,31 +118,7 @@ function LoginContent() {
           Continue with Google
         </button>
 
-        <button
-          id="sign-in-github"
-          type="button"
-          onClick={() => signIn("github")}
-          disabled={loading !== null}
-          className="relative flex items-center justify-center gap-3 w-full rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "hsl(var(--secondary))",
-            color: "hsl(var(--secondary-foreground))",
-            border: "1px solid hsl(var(--border))",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "hsl(var(--muted))")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "hsl(var(--secondary))")
-          }
-        >
-          {loading === "github" ? (
-            <span className="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-          ) : (
-            <GitHubIcon />
-          )}
-          Continue with GitHub
-        </button>
+
       </div>
 
       {error && (
