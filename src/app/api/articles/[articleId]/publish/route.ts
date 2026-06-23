@@ -50,7 +50,7 @@ export async function POST(
     );
   }
 
-  const results: Record<string, any> = {};
+  const results: Record<string, { status: string; platformUrl?: string; errorMessage?: string }> = {};
   let anySuccess = false;
 
   for (const platId of PLATFORM_IDS) {
@@ -71,11 +71,11 @@ export async function POST(
         status: res.status,
         platformUrl: res.platformUrl || null,
         errorMessage: res.errorMessage || null,
-        attemptedAt: FieldValue.serverTimestamp() as unknown as FirebaseFirestore.Timestamp,
+        attemptedAt: FieldValue.serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
       };
 
       if (res.status === "posted") {
-        pubDoc.succeededAt = FieldValue.serverTimestamp() as unknown as FirebaseFirestore.Timestamp;
+        pubDoc.succeededAt = FieldValue.serverTimestamp() as unknown as import("firebase/firestore").Timestamp;
         anySuccess = true;
       }
 
